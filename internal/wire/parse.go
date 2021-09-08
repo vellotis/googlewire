@@ -134,13 +134,22 @@ func (set *ProviderSet) For(t types.Type) ProvidedType {
 // of the given interface type.
 type IfaceBinding struct {
 	// Iface is the interface type, which is what can be injected.
-	Iface types.Type
+	Iface ProviderOutput
 
 	// Provided is always a type that is assignable to Iface.
 	Provided types.Type
 
 	// Pos is the position where the binding was declared.
 	Pos token.Pos
+}
+
+// An NamedWire declares that a type should be used to satisfy inputs
+// of the given interface type.
+type NamedWire struct {
+	// Named is always a type that is assignable to Iface.
+	Type types.Type
+	// Named is always a type that is assignable to Iface.
+	Name string
 }
 
 // Provider records the signature of a provider. A provider is a
@@ -168,7 +177,7 @@ type Provider struct {
 
 	// Out is the set of types this provider produces. It will always
 	// contain at least one type.
-	Out []types.Type
+	Out []ProviderOutput
 
 	// HasCleanup reports whether the provider function returns a cleanup
 	// function.  (Always false for structs.)
@@ -185,6 +194,47 @@ type ProviderInput struct {
 
 	// If the provider is a struct, FieldName will be the field name to set.
 	FieldName string
+
+	NamedWire *NamedWire
+}
+
+func (p ProviderInput) WireType() types.Type {
+	if p.NamedWire != nil && p.NamedWire.Type != nil {
+		return p.NamedWire.Type
+	} else {
+		return p.Type
+	}
+}
+
+func (p ProviderInput) WireName() string {
+	if p.NamedWire != nil {
+		return p.NamedWire.Name
+	} else {
+		return ""
+	}
+}
+
+// ProviderInput describes an incoming edge in the provider graph.
+type ProviderOutput struct {
+	Type types.Type
+
+	NamedWire *NamedWire
+}
+
+func (p ProviderOutput) WireType() types.Type {
+	if p.NamedWire != nil && p.NamedWire.Type != nil {
+		return p.NamedWire.Type
+	} else {
+		return p.Type
+	}
+}
+
+func (p ProviderOutput) WireName() string {
+	if p.NamedWire != nil {
+		return p.NamedWire.Name
+	} else {
+		return ""
+	}
 }
 
 // Value describes a value expression.
@@ -193,7 +243,7 @@ type Value struct {
 	Pos token.Pos
 
 	// Out is the type this value produces.
-	Out types.Type
+	Out ProviderOutput
 
 	// expr is the expression passed to wire.Value.
 	expr ast.Expr
@@ -234,7 +284,7 @@ type Field struct {
 	// Out is the field's provided types. The first element provides the
 	// field type. If the field is coming from a pointer to a struct,
 	// there will be a second element providing a pointer to the field.
-	Out []types.Type
+	Out []ProviderOutput
 }
 
 // Load finds all the provider sets in the packages that match the given
@@ -564,6 +614,12 @@ func (oc *objectCache) processExpr(info *types.Info, pkgPath string, expr ast.Ex
 				return nil, []error{notePosition(exprPos, err)}
 			}
 			return v, nil
+		case "Named":
+			v, err := oc.processNamed(oc.fset, info, pkgPath, call)
+			if err != nil {
+				return nil, err
+			}
+			return v, nil
 		case "Struct":
 			s, err := processStructProvider(oc.fset, info, call)
 			if err != nil {
@@ -576,6 +632,18 @@ func (oc *objectCache) processExpr(info *types.Info, pkgPath string, expr ast.Ex
 				return nil, []error{notePosition(exprPos, err)}
 			}
 			return v, nil
+		/*case "MethodsOf":
+			v, err := processFieldsOf(oc.fset, info, call)
+			if err != nil {
+				return nil, []error{notePosition(exprPos, err)}
+			}
+			return v, nil
+		case "BindOf":
+			v, err := processBindOf(oc.fset, info, call)
+			if err != nil {
+				return nil, []error{notePosition(exprPos, err)}
+			}
+			return v, nil*/
 		default:
 			return nil, []error{notePosition(exprPos, errors.New("unknown pattern"))}
 		}
@@ -682,22 +750,34 @@ func processFuncProvider(fset *token.FileSet, fn *types.Func) (*Provider, []erro
 	}
 	params := sig.Params()
 	provider := &Provider{
-		Pkg:        fn.Pkg(),
-		Name:       fn.Name(),
-		Pos:        fn.Pos(),
-		Args:       make([]ProviderInput, params.Len()),
-		Varargs:    sig.Variadic(),
-		Out:        []types.Type{providerSig.out},
+		Pkg:     fn.Pkg(),
+		Name:    fn.Name(),
+		Pos:     fn.Pos(),
+		Args:    make([]ProviderInput, params.Len()),
+		Varargs: sig.Variadic(),
+		Out: []ProviderOutput{{
+			Type: providerSig.out.Type(),
+			NamedWire: &NamedWire{
+				Name: providerSig.out.Name(),
+			},
+		}},
 		HasCleanup: providerSig.cleanup,
 		HasErr:     providerSig.err,
 	}
 	for i := 0; i < params.Len(); i++ {
 		provider.Args[i] = ProviderInput{
 			Type: params.At(i).Type(),
+			NamedWire: &NamedWire{
+				Name: params.At(i).Name(),
+			},
 		}
-		for j := 0; j < i; j++ {
-			if types.Identical(provider.Args[i].Type, provider.Args[j].Type) {
-				return nil, []error{notePosition(fset.Position(fpos), fmt.Errorf("provider has multiple parameters of type %s", types.TypeString(provider.Args[j].Type, nil)))}
+		if strings.HasSuffix(params.At(i).Name(), "_wired") {
+			provider.Args[i].NamedWire.Type = GetWiredArgumentType(provider.Args[i].Type, provider.Args[i].WireName())
+		} else {
+			for j := 0; j < i; j++ {
+				if types.Identical(provider.Args[i].Type, provider.Args[j].Type) {
+					return nil, []error{notePosition(fset.Position(fpos), fmt.Errorf("provider has multiple parameters of type %s", types.TypeString(provider.Args[j].Type, nil)))}
+				}
 			}
 		}
 	}
@@ -713,7 +793,7 @@ func injectorFuncSignature(sig *types.Signature) (*types.Tuple, outputSignature,
 }
 
 type outputSignature struct {
-	out     types.Type
+	out     *types.Var
 	cleanup bool
 	err     bool
 }
@@ -725,9 +805,9 @@ func funcOutput(sig *types.Signature) (outputSignature, error) {
 	case 0:
 		return outputSignature{}, errors.New("no return values")
 	case 1:
-		return outputSignature{out: results.At(0).Type()}, nil
+		return outputSignature{out: results.At(0)}, nil
 	case 2:
-		out := results.At(0).Type()
+		out := results.At(0)
 		switch t := results.At(1).Type(); {
 		case types.Identical(t, errorType):
 			return outputSignature{out: out, err: true}, nil
@@ -744,7 +824,7 @@ func funcOutput(sig *types.Signature) (outputSignature, error) {
 			return outputSignature{}, fmt.Errorf("third return type is %s; must be error", types.TypeString(t, nil))
 		}
 		return outputSignature{
-			out:     results.At(0).Type(),
+			out:     results.At(0),
 			cleanup: true,
 			err:     true,
 		}, nil
@@ -778,7 +858,9 @@ func processStructLiteralProvider(fset *token.FileSet, typeName *types.TypeName)
 		Pos:      pos,
 		Args:     make([]ProviderInput, st.NumFields()),
 		IsStruct: true,
-		Out:      []types.Type{out, types.NewPointer(out)},
+		Out: []ProviderOutput{{
+			Type: types.NewPointer(out),
+		}},
 	}
 	for i := 0; i < st.NumFields(); i++ {
 		f := st.Field(i)
@@ -825,7 +907,10 @@ func processStructProvider(fset *token.FileSet, info *types.Info, call *ast.Call
 		Name:     typeName.Name(),
 		Pos:      typeName.Pos(),
 		IsStruct: true,
-		Out:      []types.Type{structPtr.Elem(), structPtr},
+		Out: []ProviderOutput{
+			{Type: structPtr.Elem()},
+			{Type: structPtr},
+		},
 	}
 	if allFields(call) {
 		for i := 0; i < st.NumFields(); i++ {
@@ -836,26 +921,34 @@ func processStructProvider(fset *token.FileSet, info *types.Info, call *ast.Call
 			provider.Args = append(provider.Args, ProviderInput{
 				Type:      f.Type(),
 				FieldName: f.Name(),
+				NamedWire: getNamedWire(
+					f.Type(),
+					reflect.StructTag(st.Tag(i)).Get("wire"),
+				),
 			})
 		}
 	} else {
 		provider.Args = make([]ProviderInput, len(call.Args)-1)
 		for i := 1; i < len(call.Args); i++ {
-			v, err := checkField(call.Args[i], st)
+			v, fieldId, err := checkField(call.Args[i], st)
 			if err != nil {
 				return nil, notePosition(fset.Position(call.Pos()), err)
 			}
 			provider.Args[i-1] = ProviderInput{
 				Type:      v.Type(),
 				FieldName: v.Name(),
+				NamedWire: getNamedWire(
+					v.Type(),
+					reflect.StructTag(st.Tag(fieldId)).Get("wire"),
+				),
 			}
 		}
 	}
 	for i := 0; i < len(provider.Args); i++ {
 		for j := 0; j < i; j++ {
-			if types.Identical(provider.Args[i].Type, provider.Args[j].Type) {
+			if types.Identical(provider.Args[i].WireType(), provider.Args[j].WireType()) {
 				f := st.Field(j)
-				return nil, notePosition(fset.Position(f.Pos()), fmt.Errorf("provider struct has multiple fields of type %s", types.TypeString(provider.Args[j].Type, nil)))
+				return nil, notePosition(fset.Position(f.Pos()), fmt.Errorf("provider struct has multiple fields of type %s", types.TypeString(provider.Args[j].WireType(), nil)))
 			}
 		}
 	}
@@ -920,8 +1013,10 @@ func processBind(fset *token.FileSet, info *types.Info, call *ast.CallExpr) (*If
 			fmt.Errorf("%s does not implement %s", types.TypeString(provided, nil), types.TypeString(iface, nil)))
 	}
 	return &IfaceBinding{
-		Pos:      call.Pos(),
-		Iface:    iface,
+		Pos: call.Pos(),
+		Iface: ProviderOutput{
+			Type: iface,
+		},
 		Provided: provided,
 	}, nil
 }
@@ -964,8 +1059,10 @@ func processValue(fset *token.FileSet, info *types.Info, call *ast.CallExpr) (*V
 		return nil, notePosition(fset.Position(call.Pos()), fmt.Errorf("argument to Value may not be an interface value (found %s); use InterfaceValue instead", types.TypeString(argType, nil)))
 	}
 	return &Value{
-		Pos:  call.Args[0].Pos(),
-		Out:  info.TypeOf(call.Args[0]),
+		Pos: call.Args[0].Pos(),
+		Out: ProviderOutput{
+			Type: info.TypeOf(call.Args[0]),
+		},
 		expr: call.Args[0],
 		info: info,
 	}, nil
@@ -993,11 +1090,157 @@ func processInterfaceValue(fset *token.FileSet, info *types.Info, call *ast.Call
 		return nil, notePosition(fset.Position(call.Pos()), fmt.Errorf("%s does not implement %s", types.TypeString(provided, nil), types.TypeString(iface, nil)))
 	}
 	return &Value{
-		Pos:  call.Args[1].Pos(),
-		Out:  iface,
+		Pos: call.Args[1].Pos(),
+		Out: ProviderOutput{
+			Type: iface,
+		},
 		expr: call.Args[1],
 		info: info,
 	}, nil
+}
+
+func (oc *objectCache) processNamed(fset *token.FileSet, info *types.Info, pkgPath string, call *ast.CallExpr) (interface{}, []error) {
+	if len(call.Args) != 2 {
+		return nil, []error{notePosition(fset.Position(call.Pos()),
+			errors.New("call to Named takes exactly two arguments"))}
+	}
+
+	var named *types.Basic
+	namedArg := call.Args[0]
+	namedArgType := info.TypeOf(namedArg)
+	named, ok := namedArgType.(*types.Basic)
+	if !ok || named.Kind() != types.String {
+		return nil, []error{notePosition(fset.Position(call.Pos()),
+			errors.New("first argument of Named must be a string argument"))}
+	}
+
+	wiring, err := oc.processExpr(info, pkgPath, call.Args[1], "")
+	if err != nil {
+		return nil, err
+	}
+
+	wireName, _ := strconv.Unquote(call.Args[0].(*ast.BasicLit).Value)
+
+	switch wiring := wiring.(type) {
+	case *Provider:
+		clone := *wiring
+		clone.Out = append([]ProviderOutput{}, wiring.Out...)
+		clone.Out[0].NamedWire = getNamedWire(clone.Out[0].Type, wireName)
+		if clone.IsStruct {
+			clone.Out[1].NamedWire = getNamedWire(clone.Out[1].Type, wireName)
+		}
+		return &clone, nil
+	case *IfaceBinding:
+		wiring.Iface.NamedWire = getNamedWire(wiring.Iface.Type, wireName)
+	case *Value:
+		wiring.Out.NamedWire = getNamedWire(wiring.Out.Type, wireName)
+	}
+
+	return wiring, nil
+}
+
+/*// processNamed creates an interface binding from a wire.Bind call.
+func (oc *objectCache) processNamed(fset *token.FileSet, info *types.Info, pkgPath string, call *ast.CallExpr) (*NamedBinding, error) {
+	// Assumes that call.Fun is wire.Named.
+
+	if len(call.Args) != 2 {
+		return nil, notePosition(fset.Position(call.Pos()),
+			errors.New("call to Bind takes exactly two or three arguments"))
+	}
+
+	var named *types.Basic
+	namedArg := call.Args[0]
+	namedArgType := info.TypeOf(namedArg)
+	named, ok := namedArgType.(*types.Basic)
+	if !ok || named.Kind() != types.String {
+		return nil, notePosition(fset.Position(call.Pos()),
+			errors.New("first argument of Named must be a string argument"))
+	}
+
+	exp, err := oc.processExpr(info, pkgPath, call.Args[1], "")
+	if err != nil {
+		return nil, notePosition(fset.Position(call.Pos()),
+			errors.New("call to Bind takes exactly two or three arguments"))
+	}
+
+	switch exp.(type) {
+	case *Value, *IfaceBinding, *Provider, *Field:
+		// Good!
+	default:
+		return nil, notePosition(fset.Position(call.Pos()),
+			errors.New("call to Bind takes exactly two or three arguments"))
+	}
+
+	return &NamedBinding{
+		NamedType: GetNamedType(info.TypeOf(namedArg), call.Args[1].(*ast.BasicLit).Value),
+	}, nil
+}*/
+
+func getNamedWire(wiredType types.Type, wiredName string) *NamedWire {
+	if wiredName != "" {
+		return &NamedWire{
+			Type: GetNamedType(wiredType, wiredName),
+			Name: wiredName,
+		}
+	}
+
+	return nil
+}
+
+func GetWiredArgumentType(wiredType types.Type, wiredName string) types.Type {
+	if !strings.HasSuffix(wiredName, "_wired") {
+		return wiredType
+	}
+	return GetNamedType(wiredType, strings.TrimSuffix(wiredName, "_wired"))
+}
+
+func GetNamedType(wiredType types.Type, wiredName string) *types.Struct {
+	return types.NewStruct([]*types.Var{types.NewField(
+		token.NoPos, nil, "wire", wiredType, true,
+	)}, []string{fmt.Sprintf(`wire:"%s"`, wiredName)})
+}
+
+func RetrieveNamedType(typ types.Type) types.Type {
+	pt, ok := typ.(*types.Pointer)
+	if ok {
+		typ, ok := pt.Elem().(*types.Named)
+		if ok {
+			typ, ok := typ.Underlying().(*types.Struct)
+			if ok && typ.NumFields() == 1 && reflect.StructTag(typ.Tag(0)).Get("wire") != "" {
+				return typ
+			}
+		}
+	}
+	return nil
+}
+
+func typeString(typ types.Type) string {
+	typ, name := retrieveTypeAndName(typ)
+	if name != "" {
+		name = ` "` + name + `"`
+	}
+	wiredType := types.TypeString(typ, nil) + name
+	return wiredType
+}
+
+func retrieveTypeAndName(typ types.Type) (types.Type, string) {
+	origTyp := typ
+	ptrType, ok := typ.(*types.Pointer)
+	if ok {
+		typ = ptrType.Elem()
+	}
+	namedType, ok := typ.(*types.Named)
+	if ok {
+		typ = namedType.Underlying()
+	}
+	structType, ok := typ.(*types.Struct)
+	if ok && structType.NumFields() == 1 {
+		wireName := reflect.StructTag(structType.Tag(0)).Get("wire")
+		if wireName != "" {
+			return structType.Field(0).Type(), wireName
+		}
+	}
+	return origTyp, ""
 }
 
 // processFieldsOf creates a slice of fields from a wire.FieldsOf call.
@@ -1039,15 +1282,26 @@ func processFieldsOf(fset *token.FileSet, info *types.Info, call *ast.CallExpr) 
 
 	fields := make([]*Field, 0, len(call.Args)-1)
 	for i := 1; i < len(call.Args); i++ {
-		v, err := checkField(call.Args[i], struc)
+		v, fieldId, err := checkField(call.Args[i], struc)
 		if err != nil {
 			return nil, notePosition(fset.Position(call.Pos()), err)
 		}
-		out := []types.Type{v.Type()}
+		possibleWireName := reflect.StructTag(struc.Tag(fieldId)).Get("wire")
+		out := []ProviderOutput{{
+			Type:      v.Type(),
+			NamedWire: getNamedWire(v.Type(), possibleWireName),
+		}}
 		if isPtrToStruct {
 			// If the field is from a pointer to a struct, then
 			// wire.Fields also provides a pointer to the field.
-			out = append(out, types.NewPointer(v.Type()))
+			ptrType := types.NewPointer(v.Type())
+			out = append(
+				out,
+				ProviderOutput{
+					Type:      ptrType,
+					NamedWire: getNamedWire(ptrType, possibleWireName),
+				},
+			)
 		}
 		fields = append(fields, &Field{
 			Parent: structPtr.Elem(),
@@ -1060,23 +1314,104 @@ func processFieldsOf(fset *token.FileSet, info *types.Info, call *ast.CallExpr) 
 	return fields, nil
 }
 
+/*
+// processMethodsOf creates a slice of fields from a wire.MethodsOf call.
+func processMethodsOf(fset *token.FileSet, info *types.Info, call *ast.CallExpr) ([]*Field, error) {
+	// Assumes that call.Fun is wire.FieldsOf.
+
+	if len(call.Args) < 2 {
+		return nil, notePosition(fset.Position(call.Pos()),
+			errors.New("call to FieldsOf must specify fields to be extracted"))
+	}
+	const firstArgReqFormat = "first argument to FieldsOf must be a pointer to a struct or a pointer to a pointer to a struct; found %s"
+	structType := info.TypeOf(call.Args[0])
+	methodPtr, ok := structType.(*types.Pointer)
+	if !ok {
+		return nil, notePosition(fset.Position(call.Pos()),
+			fmt.Errorf(firstArgReqFormat, types.TypeString(structType, nil)))
+	}
+
+	var named *types.Named
+	isPtrToStruct := false
+	switch t := methodPtr.Elem().Underlying().(type) {
+	case *types.Pointer:
+		named, ok = t.Elem().Underlying().(*types.Named)
+		if !ok {
+			return nil, notePosition(fset.Position(call.Pos()),
+				fmt.Errorf(firstArgReqFormat, types.TypeString(named, nil)))
+		}
+		isPtrToStruct = true
+	case *types.Named:
+		named = t
+	default:
+		return nil, notePosition(fset.Position(call.Pos()),
+			fmt.Errorf(firstArgReqFormat, types.TypeString(t, nil)))
+	}
+	if named.NumMethods() < len(call.Args)-1 {
+		return nil, notePosition(fset.Position(call.Pos()),
+			fmt.Errorf("methods number exceeds the number available in the type which has %d methods", named.NumMethods()))
+	}
+
+	providers := make([]*Field, 0, len(call.Args)-1)
+	for i := 1; i < len(call.Args); i++ {
+		v, err := checkMethod(call.Args[i], named)
+		if err != nil {
+			return nil, notePosition(fset.Position(call.Pos()), err)
+		}
+		out := []types.Type{v.Type()}
+		if isPtrToStruct {
+			// If the field is from a pointer to a struct, then
+			// wire.Fields also provides a pointer to the field.
+			out = append(out, types.NewPointer(v.Type()))
+		}
+		providers = append(providers, &Provider{
+			Pkg:  v.Pkg(),
+			Name: v.Name(),
+			Pos:  v.Pos(),
+			Args: v.,
+			Varargs:    false,
+			IsStruct:   false,
+			Out:        out,
+			HasCleanup: false,
+			HasErr:     false,
+		})
+	}
+	return providers, nil
+}*/
+
 // checkField reports whether f is a field of st. f should be a string with the
 // field name.
-func checkField(f ast.Expr, st *types.Struct) (*types.Var, error) {
+func checkField(f ast.Expr, st *types.Struct) (*types.Var, int, error) {
 	b, ok := f.(*ast.BasicLit)
 	if !ok {
-		return nil, fmt.Errorf("%v must be a string with the field name", f)
+		return nil, 0, fmt.Errorf("%v must be a string with the field name", f)
 	}
 	for i := 0; i < st.NumFields(); i++ {
 		if strings.EqualFold(strconv.Quote(st.Field(i).Name()), b.Value) {
 			if isPrevented(st.Tag(i)) {
-				return nil, fmt.Errorf("%s is prevented from injecting by wire", b.Value)
+				return nil, 0, fmt.Errorf("%s is prevented from injecting by wire", b.Value)
 			}
-			return st.Field(i), nil
+			return st.Field(i), i, nil
 		}
 	}
-	return nil, fmt.Errorf("%s is not a field of %s", b.Value, st.String())
+	return nil, 0, fmt.Errorf("%s is not a field of %s", b.Value, st.String())
 }
+
+/*
+// checkMethod reports whether f is a method of nm. f should be a string with the
+// method name.
+func checkMethod(f ast.Expr, nm *types.Named) (*types.Func, error) {
+	b, ok := f.(*ast.FuncDecl)
+	if !ok {
+		return nil, fmt.Errorf("%v must be a string with the field name", f)
+	}
+	for i := 0; i < nm.NumMethods(); i++ {
+		if strings.EqualFold(strconv.Quote(nm.Method(i).Name()), b.Name.Name) {
+			return nm.Method(i), nil
+		}
+	}
+	return nil, fmt.Errorf("%s is not a method of %s", b.Value, nm.String())
+}*/
 
 // findInjectorBuild returns the wire.Build call if fn is an injector template.
 // It returns nil if the function is not an injector template.
@@ -1158,10 +1493,12 @@ func isProviderSetType(t types.Type) bool {
 type ProvidedType struct {
 	// t is the provided concrete type.
 	t types.Type
-	p *Provider
-	v *Value
-	a *InjectorArg
-	f *Field
+	// wt is the provided wired type.
+	wt types.Type
+	p  *Provider
+	v  *Value
+	a  *InjectorArg
+	f  *Field
 }
 
 // IsNil reports whether pt is the zero value.
@@ -1177,6 +1514,9 @@ func (pt ProvidedType) IsNil() bool {
 // 	 - For a value, this is the type of the expression.
 // 	 - For an argument, this is the type of the argument.
 func (pt ProvidedType) Type() types.Type {
+	if pt.wt != nil {
+		return pt.wt
+	}
 	return pt.t
 }
 

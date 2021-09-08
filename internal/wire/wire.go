@@ -623,7 +623,7 @@ func injectPass(name string, sig *types.Signature, calls []call, set *ProviderSe
 			ig.p("%s %s", ig.paramNames[i], types.TypeString(pi.Type(), ig.g.qualifyPkg))
 		}
 	}
-	outTypeString := types.TypeString(injectSig.out, ig.g.qualifyPkg)
+	outTypeString := types.TypeString(injectSig.out.Type(), ig.g.qualifyPkg)
 	switch {
 	case injectSig.cleanup && injectSig.err:
 		ig.p(") (%s, func(), error) {\n", outTypeString)
@@ -652,7 +652,8 @@ func injectPass(name string, sig *types.Signature, calls []call, set *ProviderSe
 		}
 	}
 	if len(calls) == 0 {
-		ig.p("\treturn %s", ig.paramNames[set.For(injectSig.out).Arg().Index])
+		typ := GetWiredArgumentType(injectSig.out.Type(), injectSig.out.Name())
+		ig.p("\treturn %s", ig.paramNames[set.For(typ).Arg().Index])
 	} else {
 		ig.p("\treturn %s", ig.localNames[len(calls)-1])
 	}
@@ -701,7 +702,7 @@ func (ig *injectorGen) funcProviderCall(lname string, c *call, injectSig outputS
 		for i := prevCleanup - 1; i >= 0; i-- {
 			ig.p("\t\t%s()\n", ig.cleanupNames[i])
 		}
-		ig.p("\t\treturn %s", zeroValue(injectSig.out, ig.g.qualifyPkg))
+		ig.p("\t\treturn %s", zeroValue(injectSig.out.Type(), ig.g.qualifyPkg))
 		if injectSig.cleanup {
 			ig.p(", nil")
 		}
@@ -819,6 +820,11 @@ func typeVariableName(t types.Type, defaultName string, transform func(string) s
 	case *types.Basic:
 		if t.Name() != "" {
 			names = append(names, t.Name())
+		}
+	case *types.Struct:
+		_, name := retrieveTypeAndName(t)
+		if name != "" {
+			names = append(names, name)
 		}
 	case *types.Named:
 		obj := t.Obj()

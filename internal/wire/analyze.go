@@ -92,14 +92,15 @@ type call struct {
 
 // solve finds the sequence of calls required to produce an output type
 // with an optional set of provided inputs.
-func solve(fset *token.FileSet, out types.Type, given *types.Tuple, set *ProviderSet) ([]call, []error) {
+func solve(fset *token.FileSet, out *types.Var, given *types.Tuple, set *ProviderSet) ([]call, []error) {
 	ec := new(errorCollector)
 
 	// Start building the mapping of type to local variable of the given type.
 	// The first len(given) local variables are the given types.
 	index := new(typeutil.Map)
 	for i := 0; i < given.Len(); i++ {
-		index.Set(given.At(i).Type(), i)
+		curr := given.At(i)
+		index.Set(GetWiredArgumentType(curr.Type(), curr.Name()), i)
 	}
 
 	// Topological sort of the directed graph defined by the providers
@@ -111,10 +112,12 @@ func solve(fset *token.FileSet, out types.Type, given *types.Tuple, set *Provide
 	var calls []call
 	type frame struct {
 		t    types.Type
+		name string
 		from types.Type
 		up   *frame
 	}
-	stk := []frame{{t: out}}
+	wireType := GetWiredArgumentType(out.Type(), out.Name())
+	stk := []frame{{t: wireType, name: out.Name()}}
 dfs:
 	for len(stk) > 0 {
 		curr := stk[len(stk)-1]
@@ -126,14 +129,14 @@ dfs:
 		pv := set.For(curr.t)
 		if pv.IsNil() {
 			if curr.from == nil {
-				ec.add(fmt.Errorf("no provider found for %s, output of injector", types.TypeString(curr.t, nil)))
+				ec.add(fmt.Errorf("no provider found for %s, output of injector", typeString(curr.t)))
 				index.Set(curr.t, errAbort)
 				continue
 			}
 			sb := new(strings.Builder)
-			fmt.Fprintf(sb, "no provider found for %s", types.TypeString(curr.t, nil))
+			fmt.Fprintf(sb, "no provider found for %s", typeString(curr.t))
 			for f := curr.up; f != nil; f = f.up {
-				fmt.Fprintf(sb, "\nneeded by %s in %s", types.TypeString(f.t, nil), set.srcMap.At(f.t).(*providerSetSrc).description(fset, f.t))
+				fmt.Fprintf(sb, "\nneeded by %s in %s", typeString(f.t), set.srcMap.At(f.t).(*providerSetSrc).description(fset, f.t))
 			}
 			ec.add(errors.New(sb.String()))
 			index.Set(curr.t, errAbort)
@@ -154,6 +157,7 @@ dfs:
 
 		switch pv := set.For(curr.t); {
 		case pv.IsArg():
+			fmt.Println()
 			// Continue, already added to stk.
 		case pv.IsProvider():
 			p := pv.Provider()
@@ -163,13 +167,13 @@ dfs:
 			visitedArgs := true
 			for i := len(p.Args) - 1; i >= 0; i-- {
 				a := p.Args[i]
-				if index.At(a.Type) == nil {
+ 				if index.At(a.WireType()) == nil {
 					if visitedArgs {
 						// Make sure to re-visit this type after visiting all arguments.
 						stk = append(stk, curr)
 						visitedArgs = false
 					}
-					stk = append(stk, frame{t: a.Type, from: curr.t, up: &curr})
+					stk = append(stk, frame{t: a.WireType(), name: a.WireName(), from: curr.t, up: &curr})
 				}
 			}
 			if !visitedArgs {
@@ -178,8 +182,8 @@ dfs:
 			args := make([]int, len(p.Args))
 			ins := make([]types.Type, len(p.Args))
 			for i := range p.Args {
-				ins[i] = p.Args[i].Type
-				v := index.At(p.Args[i].Type)
+				ins[i] = p.Args[i].WireType()
+				v := index.At(p.Args[i].WireType())
 				if v == errAbort {
 					index.Set(curr.t, errAbort)
 					continue dfs
@@ -234,7 +238,7 @@ dfs:
 			args := []int{v.(int)}
 			// If f.Out has 2 elements and curr.t is the 2nd one, then the call must
 			// provide a pointer to the field.
-			ptrToField := len(f.Out) == 2 && types.Identical(curr.t, f.Out[1])
+			ptrToField := len(f.Out) == 2 && types.Identical(curr.t, f.Out[1].WireType())
 			calls = append(calls, call{
 				kind:       selectorExpr,
 				pkg:        f.Pkg,
@@ -296,7 +300,7 @@ func verifyArgsUsed(set *ProviderSet, used []*providerSetSrc) []error {
 			}
 		}
 		if !found {
-			errs = append(errs, fmt.Errorf("unused value of type %s", types.TypeString(v.Out, nil)))
+			errs = append(errs, fmt.Errorf("unused value of type %s", typeString(v.Out.WireType())))
 		}
 	}
 	for _, b := range set.Bindings {
@@ -308,7 +312,7 @@ func verifyArgsUsed(set *ProviderSet, used []*providerSetSrc) []error {
 			}
 		}
 		if !found {
-			errs = append(errs, fmt.Errorf("unused interface binding to type %s", types.TypeString(b.Iface, nil)))
+			errs = append(errs, fmt.Errorf("unused interface binding to type %s", typeString(b.Iface.WireType())))
 		}
 	}
 	for _, f := range set.Fields {
@@ -340,14 +344,19 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 	if set.InjectorArgs != nil {
 		givens := set.InjectorArgs.Tuple
 		for i := 0; i < givens.Len(); i++ {
-			typ := givens.At(i).Type()
+			given := givens.At(i)
+			typ := GetWiredArgumentType(given.Type(), given.Name())
 			arg := &InjectorArg{Args: set.InjectorArgs, Index: i}
 			src := &providerSetSrc{InjectorArg: arg}
 			if prevSrc := srcMap.At(typ); prevSrc != nil {
 				ec.add(bindingConflictError(fset, typ, set, src, prevSrc.(*providerSetSrc)))
 				continue
 			}
-			providerMap.Set(typ, &ProvidedType{t: typ, a: arg})
+			pt := &ProvidedType{t: given.Type(), a: arg}
+			if strings.HasSuffix(given.Name(), "_wired") {
+				pt.wt = typ
+			}
+			providerMap.Set(typ, pt)
 			srcMap.Set(typ, src)
 		}
 	}
@@ -370,33 +379,33 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 	// Process non-binding providers in new set.
 	for _, p := range set.Providers {
 		src := &providerSetSrc{Provider: p}
-		for _, typ := range p.Out {
-			if prevSrc := srcMap.At(typ); prevSrc != nil {
-				ec.add(bindingConflictError(fset, typ, set, src, prevSrc.(*providerSetSrc)))
+		for _, out := range p.Out {
+			if prevSrc := srcMap.At(out.WireType()); prevSrc != nil {
+				ec.add(bindingConflictError(fset, out.WireType(), set, src, prevSrc.(*providerSetSrc)))
 				continue
 			}
-			providerMap.Set(typ, &ProvidedType{t: typ, p: p})
-			srcMap.Set(typ, src)
+			providerMap.Set(out.WireType(), &ProvidedType{t: out.Type, wt: out.WireType(), p: p})
+			srcMap.Set(out.WireType(), src)
 		}
 	}
 	for _, v := range set.Values {
 		src := &providerSetSrc{Value: v}
-		if prevSrc := srcMap.At(v.Out); prevSrc != nil {
-			ec.add(bindingConflictError(fset, v.Out, set, src, prevSrc.(*providerSetSrc)))
+		if prevSrc := srcMap.At(v.Out.WireType()); prevSrc != nil {
+			ec.add(bindingConflictError(fset, v.Out.WireType(), set, src, prevSrc.(*providerSetSrc)))
 			continue
 		}
-		providerMap.Set(v.Out, &ProvidedType{t: v.Out, v: v})
-		srcMap.Set(v.Out, src)
+		providerMap.Set(v.Out.WireType(), &ProvidedType{t: v.Out.Type, wt: v.Out.WireType(), v: v})
+		srcMap.Set(v.Out.WireType(), src)
 	}
 	for _, f := range set.Fields {
 		src := &providerSetSrc{Field: f}
-		for _, typ := range f.Out {
-			if prevSrc := srcMap.At(typ); prevSrc != nil {
-				ec.add(bindingConflictError(fset, typ, set, src, prevSrc.(*providerSetSrc)))
+		for _, out := range f.Out {
+			if prevSrc := srcMap.At(out.WireType()); prevSrc != nil {
+				ec.add(bindingConflictError(fset, out.WireType(), set, src, prevSrc.(*providerSetSrc)))
 				continue
 			}
-			providerMap.Set(typ, &ProvidedType{t: typ, f: f})
-			srcMap.Set(typ, src)
+			providerMap.Set(out.WireType(), &ProvidedType{t: out.Type, wt: out.WireType(), f: f})
+			srcMap.Set(out.WireType(), src)
 		}
 	}
 	if len(ec.errors) > 0 {
@@ -407,8 +416,8 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 	// ensure the concrete type is being provided.
 	for _, b := range set.Bindings {
 		src := &providerSetSrc{Binding: b}
-		if prevSrc := srcMap.At(b.Iface); prevSrc != nil {
-			ec.add(bindingConflictError(fset, b.Iface, set, src, prevSrc.(*providerSetSrc)))
+		if prevSrc := srcMap.At(b.Iface.WireType()); prevSrc != nil {
+			ec.add(bindingConflictError(fset, b.Iface.WireType(), set, src, prevSrc.(*providerSetSrc)))
 			continue
 		}
 		concrete := providerMap.At(b.Provided)
@@ -417,11 +426,11 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 			if setName == "" {
 				setName = "provider set"
 			}
-			ec.add(notePosition(fset.Position(b.Pos), fmt.Errorf("wire.Bind of concrete type %q to interface %q, but %s does not include a provider for %q", b.Provided, b.Iface, setName, b.Provided)))
+			ec.add(notePosition(fset.Position(b.Pos), fmt.Errorf("wire.Bind of concrete type %q to interface %q, but %s does not include a provider for %q", b.Provided, typeString(b.Iface.WireType()), setName, b.Provided)))
 			continue
 		}
-		providerMap.Set(b.Iface, concrete)
-		srcMap.Set(b.Iface, src)
+		providerMap.Set(b.Iface.WireType(), concrete)
+		srcMap.Set(b.Iface.WireType(), src)
 	}
 	if len(ec.errors) > 0 {
 		return nil, nil, ec.errors
@@ -467,7 +476,7 @@ func verifyAcyclic(providerMap *typeutil.Map, hasher typeutil.Hasher) []error {
 				var args []types.Type
 				if pt.IsProvider() {
 					for _, arg := range pt.Provider().Args {
-						args = append(args, arg.Type)
+						args = append(args, arg.WireType())
 					}
 				} else {
 					args = append(args, pt.Field().Parent)
@@ -477,15 +486,15 @@ func verifyAcyclic(providerMap *typeutil.Map, hasher typeutil.Hasher) []error {
 					for i, b := range curr {
 						if types.Identical(a, b) {
 							sb := new(strings.Builder)
-							fmt.Fprintf(sb, "cycle for %s:\n", types.TypeString(a, nil))
+							fmt.Fprintf(sb, "cycle for %s:\n", typeString(a))
 							for j := i; j < len(curr); j++ {
 								t := providerMap.At(curr[j]).(*ProvidedType)
 								if t.IsProvider() {
 									p := t.Provider()
-									fmt.Fprintf(sb, "%s (%s.%s) ->\n", types.TypeString(curr[j], nil), p.Pkg.Path(), p.Name)
+									fmt.Fprintf(sb, "%s (%s.%s) ->\n", typeString(curr[j]), p.Pkg.Path(), p.Name)
 								} else {
 									p := t.Field()
-									fmt.Fprintf(sb, "%s (%s.%s) ->\n", types.TypeString(curr[j], nil), p.Parent, p.Name)
+									fmt.Fprintf(sb, "%s (%s.%s) ->\n", typeString(curr[j]), p.Parent, p.Name)
 								}
 							}
 							fmt.Fprintf(sb, "%s", types.TypeString(a, nil))
@@ -514,7 +523,7 @@ func bindingConflictError(fset *token.FileSet, typ types.Type, set *ProviderSet,
 	if set.VarName != "" {
 		fmt.Fprintf(sb, "%s has ", set.VarName)
 	}
-	fmt.Fprintf(sb, "multiple bindings for %s\n", types.TypeString(typ, nil))
+	fmt.Fprintf(sb, "multiple bindings for %s\n", typeString(typ))
 	fmt.Fprintf(sb, "current:\n<- %s\n", strings.Join(cur.trace(fset, typ), "\n<- "))
 	fmt.Fprintf(sb, "previous:\n<- %s", strings.Join(prev.trace(fset, typ), "\n<- "))
 	return notePosition(fset.Position(set.Pos), errors.New(sb.String()))

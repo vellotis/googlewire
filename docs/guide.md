@@ -463,3 +463,102 @@ func injectFoo() Foo {
     panic(wire.Build(/* ... */))
 }
 ```
+
+### Using named providers
+
+Providing a different alias for every interface that has multiple implementations
+may become overwhelming in some point. A more convenient approach would be to use
+named provider.
+
+With this approach you may have providers with multiple same argument types. Provider in and out arguments
+that needs to get wired need to have "_wired" suffix. The "_wired" suffix will be omitted from the binding
+name.
+
+``` go
+func multiplyProvider(value_wired, multiplyBy_wired uint) uint {
+    return value_wired * multiplyBy_wired
+}
+
+func provideNumber() uint {
+    wire.Build(
+        wire.Named("value", wire.Value(uint(3))),
+        wire.Named("multiplyBy", wire.Value(uint(4))),
+        multiplyProvider,
+    )
+    return 0
+}
+```
+
+Or you could use multiple providers that return the value of the same interface type.
+
+``` go
+type Fooer interface {
+    Foo() string
+}
+
+func provideFooerImpl1() Fooer {
+    return &FooA{}
+}
+
+func provideFooerImpl2() Fooer {
+    return &FooB{}
+}
+
+func addFooers(fooerA_wired, fooerB_wired Fooer) string {
+    return wireFooerA.Foo() + wireFooerB.Foo()
+}
+
+func provideFooersStringA() string {
+    wire.Build(
+        wire.Named("fooerA", provideFooerImpl1),
+        wire.Named("fooerB", provideFooerImpl2),
+        addFooers,
+    )
+    return ""
+}
+
+func provideFooersStringB() string {
+    wire.Build(
+        wire.Named("fooerA", wire.InterfaceValue(new(Fooer), &FooA{})),
+        wire.Named("fooerB", wire.InterfaceValue(new(Fooer), &FooB{})),
+        addFooers,
+    )
+    return ""
+}
+```
+
+Named values can also be used in providers set. Named value defined in the providers
+set can be returned by the provider by defining named return.
+
+``` go
+var Set = wire.NewSet(
+    wire.Named("number", wire.Value(1)),
+)
+
+func provideNumber() (number_wired int) {
+    wire.Build(Set)
+    return 0
+}
+```
+
+Named values may be used along with `wire.FieldsOf` and `wire.Struct`. The struct fields that
+you need to wire your value to or from need to have "wire" tag with the name of the binding.
+
+``` go
+type Config struct {
+    UserName string `wire:"userName"`
+    Password string `wire:"password"`
+}
+
+func getConfig(userName_wired, password_wired string) Config {
+    panic(wire.Build(
+        wire.Struct(new(Config), "*"),
+    ))
+}
+
+func getUserName(config Config) (userName_wired string) {
+    panic(wire.Build(
+        wire.FieldsOf(new(Config), "UserName"),
+    ))
+}
+```
