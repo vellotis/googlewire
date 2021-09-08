@@ -86,7 +86,8 @@ You may not:
 -   Remove `NewStdoutGreeter` from `GreeterSet`. Injectors depending on
     `*Greeter` will be broken.
 -   Add a provider for `io.Writer` to `GreeterSet`. Injectors might already have
-    a provider for `io.Writer` which might conflict with this one.
+    a provider for `io.Writer` which might conflict with this one. To overcome
+    this you may use named providers by utilizing `wire.Named`.
 
 As such, you should pick the output types in a library provider set carefully.
 In general, prefer small provider sets in a library. For example, it is common

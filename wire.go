@@ -59,6 +59,55 @@ func NewSet(...interface{}) ProviderSet {
 	return ProviderSet{}
 }
 
+// NamedWire is a marker type that collects named provider declarations.
+type NamedWire struct {}
+
+// Named can be used to turn a provider into named provider. Can be used in
+// conjunction with all other providers. Using with provider function, Bind,
+// Value and InterfaceValue declarations which need to be wrapped with Named.
+//
+//	func initializer() *Strct {
+//		wire.Build(
+//			wire.Named("wireFoo", provideFoo),
+//			wire.Named("wireBar", wire.Value(Bar{})),
+//			wire.Named("wireBarer", wire.Bind(new(Barer), new(Bar))),
+//			wire.Named("wireBazer", wire.InterfaceValue(new(Bazer), Baz{})),
+//			createStrct,
+//		)
+//		return nil, nil
+//	}
+//
+// When using Named a combination of returned type and binding name will be
+// used to represent a unique provider in the Wire's dependency graph. This
+// means that the same uniqueness rules apply for the named type as for the
+// non-named type. Non-named type cannot be matched with named type. The same
+// named and non-named type may be presented alongside in the Wire's dependency
+// graph as they are not equal.
+//
+// Named providers can be used with struct fields. The struct fields that need
+// to play a role in wiring providers require "wire" tag with name of the
+// binded provider.
+//
+//	type Config struct {
+//		UserName string `wire:"wireUserName"`
+//		Password string `wire:"wirePassword"`
+//	}
+//
+//	func getConfig(wireUserName, wirePassword string) Config {
+//		panic(wire.Build(
+//			wire.Struct(new(Config), "*"),
+//		))
+//	}
+//
+//	func getUserName(config Config) (wireUserName string) {
+//		panic(wire.Build(
+//			wire.FieldsOf(new(Config), "UserName"),
+//		))
+//	}
+func Named(name string, target interface{}) NamedWire {
+	return NamedWire{}
+}
+
 // Build is placed in the body of an injector function template to declare the
 // providers to use. The Wire code generation tool will fill in an
 // implementation of the function. The arguments to Build are interpreted the

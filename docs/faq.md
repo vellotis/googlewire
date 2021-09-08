@@ -35,57 +35,6 @@ into no-op function calls, Wire interoperates seamlessly with other Go tooling.
 
 [`gorename`]: https://godoc.org/golang.org/x/tools/cmd/gorename
 
-## What if my dependency graph has two dependencies of the same type?
-
-This most frequently appears with common types like `string`. An example of this
-problem would be:
-
-```go
-type Foo struct { /* ... */ }
-type Bar struct { /* ... */ }
-
-func newFoo1() *Foo { /* ... */ }
-func newFoo2() *Foo { /* ... */ }
-func newBar(foo1 *Foo, foo2 *Foo) *Bar { /* ... */ }
-
-func inject() *Bar {
-	// ERROR! Multiple providers for *Foo.
-	wire.Build(newFoo1, newFoo2, newBar)
-	return nil
-}
-```
-
-Wire does not allow multiple providers for one type to exist in the transitive
-closure of the providers presented to `wire.Build`, as this is usually a
-mistake. For legitimate cases where you need multiple dependencies of the same
-type, you need to invent a new type to call this other dependency. For example,
-you can name OAuth credentials after the service they connect to. Once you have
-a suitable different type, you can wrap and unwrap the type when plumbing it
-through Wire. Continuing our above example:
-
-```go
-type OtherFoo Foo
-
-func newOtherFoo() *OtherFoo {
-	// Call the original provider...
-	foo := newFoo2()
-	// ...then convert it to the new type.
-	return (*OtherFoo)(foo)
-}
-
-func provideBar(foo1 *Foo, otherFoo *OtherFoo) *Bar {
-	// Convert the new type into the unwrapped type...
-	foo2 := (*Foo)(otherFoo)
-	// ...then use it to call the original provider.
-	return newBar(foo1, foo2)
-}
-
-func inject() *Bar {
-	wire.Build(newFoo1, newOtherFoo, provideBar)
-	return nil
-}
-```
-
 ## Why does Wire forbid including the same provider multiple times?
 
 Wire forbids this to remain consistent with the principle that specifying

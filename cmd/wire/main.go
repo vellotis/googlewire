@@ -449,13 +449,17 @@ func gather(info *wire.Info, key wire.ProviderSetID) (_ []outGroup, imports map[
 				allPresent := true
 				for _, arg := range p.Args {
 					if inputVisited.At(arg.Type) == nil {
-						allPresent = false
+						namedType := wire.GetNamedType(arg.Type, arg.FieldName)
+						if inputVisited.At(namedType) == nil {
+							allPresent = false
+							break
+						}
 					}
 				}
 				if !allPresent {
 					stk = append(stk, curr)
 					for _, arg := range p.Args {
-						if inputVisited.At(arg.Type) == nil {
+						if inputVisited.At(arg.Type) == nil && inputVisited.At(wire.GetNamedType(arg.Type, arg.FieldName)) == nil {
 							stk = append(stk, arg.Type)
 						}
 					}
