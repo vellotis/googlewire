@@ -21,9 +21,9 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessage() (wireExported string) {
+func injectedMessage() (exported_wired string) {
 	wire.Build(
-		wire.Named("wireExported", bar.Value),
+		wire.Named("exported", bar.Value),
 	)
 	return ""
 }

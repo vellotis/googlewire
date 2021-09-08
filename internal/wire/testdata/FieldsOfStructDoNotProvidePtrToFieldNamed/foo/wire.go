@@ -20,7 +20,7 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessagePtr() (wireFoo *string) {
+func injectedMessagePtr() (foo_wired *string) {
 	// This shouldn't work; FieldsOf provides a pointer to the
 	// field only when the struct type is a pointer to a struct.
 	// See FieldsOfStructPointer for a working example using

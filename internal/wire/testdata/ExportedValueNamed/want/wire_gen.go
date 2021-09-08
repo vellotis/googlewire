@@ -12,8 +12,8 @@ import (
 // Injectors from wire.go:
 
 func injectedMessage() string {
-	wireExported := _wireStringValue
-	return wireExported
+	exported := _wireStringValue
+	return exported
 }
 
 var (

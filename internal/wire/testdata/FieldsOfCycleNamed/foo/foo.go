@@ -26,10 +26,10 @@ type Foo int
 type Baz int
 
 type Bar struct {
-	Bz Baz `wire:"wireBaz"`
+	Bz Baz `wire:"baz"`
 }
 
-func provideFoo(wireBaz Baz) Foo {
+func provideFoo(baz_wired Baz) Foo {
 	return 0
 }
 

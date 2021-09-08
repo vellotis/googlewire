@@ -22,9 +22,9 @@ import (
 	"github.com/google/wire"
 )
 
-func injectStringer(s MyString) (wireStringer fmt.Stringer) {
+func injectStringer(s MyString) (stringer_wired fmt.Stringer) {
 	wire.Build(
-		wire.Named("wireStringer", wire.Bind(new(fmt.Stringer), new(MyString))),
+		wire.Named("stringer", wire.Bind(new(fmt.Stringer), new(MyString))),
 	)
 	return nil
 }

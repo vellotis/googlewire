@@ -38,6 +38,6 @@ type Bar struct {
 	Name string
 }
 
-func NewBar(wireFoo Fooer) *Bar {
-	return &Bar{Name: wireFoo.Foo()}
+func NewBar(foo_wired Fooer) *Bar {
+	return &Bar{Name: foo_wired.Foo()}
 }

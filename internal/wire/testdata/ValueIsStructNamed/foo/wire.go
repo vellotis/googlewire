@@ -20,9 +20,9 @@ import (
 	"github.com/google/wire"
 )
 
-func injectFoo() (wireNamed Foo) {
+func injectFoo() (named_wired Foo) {
 	wire.Build(
-		wire.Named("wireNamed", wire.Value(Foo{X: 42})),
+		wire.Named("named", wire.Value(Foo{X: 42})),
 	)
 	return Foo{}
 }

@@ -7,8 +7,8 @@ package main
 
 // Injectors from wire.go:
 
-func injectFoo(wireFooA Foo) Foo {
-	wireFooB := provideFoo()
-	foo := provideAddedFoo(wireFooA, wireFooB)
+func injectFoo(fooA_wired Foo) Foo {
+	fooB := provideFoo()
+	foo := provideAddedFoo(fooA_wired, fooB)
 	return foo
 }

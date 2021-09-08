@@ -20,14 +20,14 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessage() (wireFoo string) {
+func injectedMessage() (foo_wired string) {
 	wire.Build(
 		provideS,
 		wire.FieldsOf(new(*S), "Foo"))
 	return ""
 }
 
-func injectedMessagePtr() (wireFoo *string) {
+func injectedMessagePtr() (foo_wired *string) {
 	wire.Build(
 		provideS,
 		wire.FieldsOf(new(*S), "Foo"))

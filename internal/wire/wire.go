@@ -652,10 +652,7 @@ func injectPass(name string, sig *types.Signature, calls []call, set *ProviderSe
 		}
 	}
 	if len(calls) == 0 {
-		typ := injectSig.out.Type()
-		if strings.HasPrefix(injectSig.out.Name(), "wire") {
-			typ = GetNamedType(typ, injectSig.out.Name())
-		}
+		typ := GetWiredArgumentType(injectSig.out.Type(), injectSig.out.Name())
 		ig.p("\treturn %s", ig.paramNames[set.For(typ).Arg().Index])
 	} else {
 		ig.p("\treturn %s", ig.localNames[len(calls)-1])

@@ -20,7 +20,7 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessage() (wireA string) {
+func injectedMessage() (a_wired string) {
 	wire.Build(
 		provideS,
 		wire.FieldsOf(new(S), "A"))

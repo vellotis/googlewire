@@ -27,14 +27,14 @@ func main() {
 type Foo int
 
 var Set = wire.NewSet(
-	wire.Named("wireFooB", provideFoo),
-	wire.Named("wireFooResult", provideAddedFoo),
+	wire.Named("fooB", provideFoo),
+	wire.Named("fooResult", provideAddedFoo),
 )
 
 func provideFoo() Foo {
 	return 2
 }
 
-func provideAddedFoo(wireFooA Foo, wireFooB Foo) Foo {
-	return wireFooA + wireFooB
+func provideAddedFoo(fooA_wired Foo, fooB_wired Foo) Foo {
+	return fooA_wired + fooB_wired
 }

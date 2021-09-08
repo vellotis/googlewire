@@ -33,13 +33,13 @@ func provideFooA() (*Foo, func()) {
 	return foo, func() { *foo = 0 }
 }
 
-func provideFooB(wireFooA *Foo) (*Foo, func()) {
+func provideFooB(fooA_wired *Foo) (*Foo, func()) {
 	fooB := new(Foo)
 	*fooB = 77
 	return fooB, func() {
-		if *wireFooA == 0 {
+		if *fooA_wired == 0 {
 			panic("foo A cleaned up before foo B")
 		}
-		*wireFooA = 0
+		*fooA_wired = 0
 	}
 }

@@ -20,9 +20,9 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessage() (wireNamed string) {
+func injectedMessage() (named_wired string) {
 	wire.Build(
-		wire.Named("wireNamed", wire.Value("Hello, World!")),
+		wire.Named("named", wire.Value("Hello, World!")),
 	)
 	return ""
 }

@@ -21,5 +21,5 @@ import "github.com/google/wire"
 
 // Set provides an unfriendly user greeting.
 var Set = wire.NewSet(
-	wire.Named("wireString", wire.Value("Bah humbug! This is the wrong variant!")),
+	wire.Named("message", wire.Value("Bah humbug! This is the wrong variant!")),
 )

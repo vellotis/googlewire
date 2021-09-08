@@ -26,7 +26,7 @@ type Foo int
 type Bar int
 type Baz int
 
-func provideBaz(wireFoo Foo, wireBar Bar) (wireBaz Baz) {
+func provideBaz(foo_wired Foo, bar_wired Bar) (baz_wired Baz) {
 	return 0
 }
 
@@ -34,14 +34,14 @@ type Zip int
 type Zap int
 type Zop int
 
-func provideZip(wireFoo Foo) (wireZip Zip) {
+func provideZip(foo_wired Foo) (zip_wired Zip) {
 	return 0
 }
 
-func provideZap(wireZip Zip) (wireZap Zap) {
+func provideZap(zip_wired Zip) (zap_wired Zap) {
 	return 0
 }
 
-func provideZop(wireZap Zap) (wireZop Zop) {
+func provideZop(zap_wired Zap) (zop_wired Zop) {
 	return 0
 }

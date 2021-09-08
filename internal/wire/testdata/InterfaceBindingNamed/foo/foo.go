@@ -42,5 +42,5 @@ func provideBar() *Bar {
 
 var Set = wire.NewSet(
 	provideBar,
-	wire.Named("wireFooer", wire.Bind(new(Fooer), new(*Bar))),
+	wire.Named("fooer", wire.Bind(new(Fooer), new(*Bar))),
 )

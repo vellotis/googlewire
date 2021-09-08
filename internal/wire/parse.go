@@ -771,8 +771,8 @@ func processFuncProvider(fset *token.FileSet, fn *types.Func) (*Provider, []erro
 				Name: params.At(i).Name(),
 			},
 		}
-		if strings.HasPrefix(params.At(i).Name(), "wire") {
-			provider.Args[i].NamedWire.Type = GetNamedType(provider.Args[i].Type, provider.Args[i].WireName())
+		if strings.HasSuffix(params.At(i).Name(), "_wired") {
+			provider.Args[i].NamedWire.Type = GetWiredArgumentType(provider.Args[i].Type, provider.Args[i].WireName())
 		} else {
 			for j := 0; j < i; j++ {
 				if types.Identical(provider.Args[i].Type, provider.Args[j].Type) {
@@ -1188,10 +1188,10 @@ func getNamedWire(wiredType types.Type, wiredName string) *NamedWire {
 }
 
 func GetWiredArgumentType(wiredType types.Type, wiredName string) types.Type {
-	if !strings.HasPrefix(wiredName, "wire") {
+	if !strings.HasSuffix(wiredName, "_wired") {
 		return wiredType
 	}
-	return GetNamedType(wiredType, wiredName)
+	return GetNamedType(wiredType, strings.TrimSuffix(wiredName, "_wired"))
 }
 
 func GetNamedType(wiredType types.Type, wiredName string) *types.Struct {

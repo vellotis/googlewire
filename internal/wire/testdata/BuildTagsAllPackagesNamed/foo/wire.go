@@ -21,7 +21,7 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedMessage() (wireString string) {
+func injectedMessage() (message_wired string) {
 	wire.Build(bar.Set)
 	return ""
 }

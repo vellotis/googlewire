@@ -8,8 +8,8 @@ package main
 // Injectors from wire.go:
 
 func injectFooBar() FooBar {
-	wireFooValue := _wireFooValue
-	fooBar := provideFooBar(wireFooValue)
+	fooValue := _wireFooValue
+	fooBar := provideFooBar(fooValue)
 	return fooBar
 }
 

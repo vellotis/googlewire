@@ -17,7 +17,7 @@ package main
 import "fmt"
 
 type S struct {
-	Foo string `wire:"wireFoo"`
+	Foo string `wire:"foo"`
 }
 
 func provideS() *S {

@@ -22,8 +22,8 @@ import (
 
 func injectBar() (Bar, func(), error) {
 	wire.Build(
-		wire.Named("wireFooA", provideFoo),
-		wire.Named("wireFooB", provideFoo),
+		wire.Named("fooA", provideFoo),
+		wire.Named("fooB", provideFoo),
 		provideBar,
 	)
 	return 0, nil, nil

@@ -22,8 +22,8 @@ import (
 
 func injectedBaz() Baz {
 	wire.Build(
-		wire.Named("wireFooA", provideFooA),
-		wire.Named("wireFooB", provideFooB),
+		wire.Named("fooA", provideFooA),
+		wire.Named("fooB", provideFooB),
 		provideBar,
 		provideBaz,
 	)

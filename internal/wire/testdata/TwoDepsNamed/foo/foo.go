@@ -34,11 +34,11 @@ func provideFoo() Foo {
 	return fooValue
 }
 
-func provideFooBar(wireFooA Foo, wireFooB Foo) Foo {
-	return wireFooA + wireFooB
+func provideFooBar(fooA_wired Foo, fooB_wired Foo) Foo {
+	return fooA_wired + fooB_wired
 }
 
 var Set = wire.NewSet(
-	wire.Named("wireFooA", provideFoo),
-	wire.Named("wireFooB", provideFoo),
+	wire.Named("fooA", provideFoo),
+	wire.Named("fooB", provideFoo),
 	provideFooBar)

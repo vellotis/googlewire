@@ -8,6 +8,6 @@ package main
 // Injectors from wire.go:
 
 func injectedMessage() string {
-	wireNamed := provideMessage()
-	return wireNamed
+	named := provideMessage()
+	return named
 }

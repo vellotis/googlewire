@@ -470,18 +470,19 @@ Providing a different alias for every interface that has multiple implementation
 may become overwhelming in some point. A more convenient approach would be to use
 named provider.
 
-With this approach you may have providers with multiple same argument types. Arguments
-that needs to get wired need to have "wire" prefix.
+With this approach you may have providers with multiple same argument types. Provider in and out arguments
+that needs to get wired need to have "_wired" suffix. The "_wired" suffix will be omitted from the binding
+name.
 
 ``` go
-func multiplyProvider(wireValue, wireMultiplyBy uint) uint {
-    return wireValue * wireMultiplyBy
+func multiplyProvider(value_wired, multiplyBy_wired uint) uint {
+    return value_wired * multiplyBy_wired
 }
 
 func provideNumber() uint {
     wire.Build(
-        wire.Named("wireValue", wire.Value(uint(3))),
-        wire.Named("wireMultiplyBy", wire.Value(uint(4))),
+        wire.Named("value", wire.Value(uint(3))),
+        wire.Named("multiplyBy", wire.Value(uint(4))),
         multiplyProvider,
     )
     return 0
@@ -503,14 +504,14 @@ func provideFooerImpl2() Fooer {
     return &FooB{}
 }
 
-func addFooers(wireFooerA, wireFooerB Fooer) string {
+func addFooers(fooerA_wired, fooerB_wired Fooer) string {
     return wireFooerA.Foo() + wireFooerB.Foo()
 }
 
 func provideFooersStringA() string {
     wire.Build(
-        wire.Named("wireFooerA", provideFooerImpl1),
-        wire.Named("wireFooerB", provideFooerImpl2),
+        wire.Named("fooerA", provideFooerImpl1),
+        wire.Named("fooerB", provideFooerImpl2),
         addFooers,
     )
     return ""
@@ -518,8 +519,8 @@ func provideFooersStringA() string {
 
 func provideFooersStringB() string {
     wire.Build(
-        wire.Named("wireFooerA", wire.InterfaceValue(new(Fooer), &FooA{})),
-        wire.Named("wireFooerB", wire.InterfaceValue(new(Fooer), &FooB{})),
+        wire.Named("fooerA", wire.InterfaceValue(new(Fooer), &FooA{})),
+        wire.Named("fooerB", wire.InterfaceValue(new(Fooer), &FooB{})),
         addFooers,
     )
     return ""
@@ -531,10 +532,10 @@ set can be returned by the provider by defining named return.
 
 ``` go
 var Set = wire.NewSet(
-    wire.Named("wireNumber", wire.Value(1)),
+    wire.Named("number", wire.Value(1)),
 )
 
-func provideNumber() (wireNumber int) {
+func provideNumber() (number_wired int) {
     wire.Build(Set)
     return 0
 }
@@ -545,17 +546,17 @@ you need to wire your value to or from need to have "wire" tag with the name of 
 
 ``` go
 type Config struct {
-    UserName string `wire:"wireUserName"`
-    Password string `wire:"wirePassword"`
+    UserName string `wire:"userName"`
+    Password string `wire:"password"`
 }
 
-func getConfig(wireUserName, wirePassword string) Config {
+func getConfig(userName_wired, password_wired string) Config {
     panic(wire.Build(
         wire.Struct(new(Config), "*"),
     ))
 }
 
-func getUserName(config Config) (wireUserName string) {
+func getUserName(config Config) (userName_wired string) {
     panic(wire.Build(
         wire.FieldsOf(new(Config), "UserName"),
     ))

@@ -8,9 +8,9 @@ package main
 // Injectors from wire.go:
 
 func injectBar() (Bar, func(), error) {
-	wireFooA, cleanup := provideFoo()
-	wireFooB, cleanup2 := provideFoo()
-	bar, err := provideBar(wireFooA, wireFooB)
+	fooA, cleanup := provideFoo()
+	fooB, cleanup2 := provideFoo()
+	bar, err := provideBar(fooA, fooB)
 	if err != nil {
 		cleanup2()
 		cleanup()

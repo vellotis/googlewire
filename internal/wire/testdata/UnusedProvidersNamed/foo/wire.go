@@ -23,8 +23,8 @@ import (
 func injectFooBar() FooBar {
 	wire.Build(
 		provideFoo,                                                 // needed as input for Fooer binding
-		wire.Named("wireFoo", provideFoo),                          // needed as input for provideBar
-		wire.Named("wireBar", provideBar),                          // needed for FooBar
+		wire.Named("foo", provideFoo),                          // needed as input for provideBar
+		wire.Named("bar", provideBar),                          // needed for FooBar
 		partiallyUsedSet,                                           // 1/2 providers in the set are needed
 		wire.Named("unused", provideUnused),                        // not needed -> error
 		wire.Named("unusedValue", wire.Value("unused")),            // not needed -> error

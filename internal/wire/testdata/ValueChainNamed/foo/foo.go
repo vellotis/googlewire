@@ -28,9 +28,9 @@ type Foo int
 type FooBar int
 
 var Set = wire.NewSet(
-	wire.Named("wireFooValue", wire.Value(Foo(41))),
+	wire.Named("fooValue", wire.Value(Foo(41))),
 	provideFooBar)
 
-func provideFooBar(wireFooValue Foo) FooBar {
-	return FooBar(wireFooValue) + 1
+func provideFooBar(fooValue_wired Foo) FooBar {
+	return FooBar(fooValue_wired) + 1
 }

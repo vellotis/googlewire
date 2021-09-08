@@ -8,8 +8,8 @@ package main
 // Injectors from wire.go:
 
 func injectFoo() Foo {
-	wireNamed := _wireFooValue
-	return wireNamed
+	named := _wireFooValue
+	return named
 }
 
 var (

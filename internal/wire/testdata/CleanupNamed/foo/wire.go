@@ -20,10 +20,10 @@ import (
 	"github.com/google/wire"
 )
 
-func injectBar() (wireFooB *Foo, _ func()) {
+func injectBar() (fooB_wired *Foo, _ func()) {
 	wire.Build(
-		wire.Named("wireFooA", provideFooA),
-		wire.Named("wireFooB", provideFooB),
+		wire.Named("fooA", provideFooA),
+		wire.Named("fooB", provideFooB),
 	)
 	return nil, nil
 }

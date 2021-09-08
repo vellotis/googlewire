@@ -20,19 +20,19 @@ import (
 	"github.com/google/wire"
 )
 
-func injectMissingOutputType() (wireFoo Foo) {
+func injectMissingOutputType() (foo_wired Foo) {
 	// Error: no provider for Foo.
 	wire.Build()
 	return Foo(0)
 }
 
-func injectMultipleMissingTypes() (wireBaz Baz) {
+func injectMultipleMissingTypes() (baz_wired Baz) {
 	// Error: provideBaz needs Foo and Bar, both missing.
 	wire.Build(provideBaz)
 	return Baz(0)
 }
 
-func injectMissingRecursiveType() (wireZop Zop) {
+func injectMissingRecursiveType() (zop_wired Zop) {
 	// Error:
 	// Zop  -> Zap -> Zip -> Foo
 	// provideZop needs Zap, provideZap needs Zip, provideZip needs Foo,

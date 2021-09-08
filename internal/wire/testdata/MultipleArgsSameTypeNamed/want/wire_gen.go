@@ -7,15 +7,15 @@ package main
 
 // Injectors from wire.go:
 
-func inject(wireA string, wireB string) *Foo {
-	foo := provideFoo(wireB, wireA)
+func inject(wireA_wired string, wireB_wired string) *Foo {
+	foo := provideFoo(wireB_wired, wireA_wired)
 	return foo
 }
 
-func provideFoo(wireB string, wireA string) *Foo {
+func provideFoo(wireB_wired string, wireA_wired string) *Foo {
 	foo := &Foo{
-		A: wireA,
-		B: wireB,
+		A: wireA_wired,
+		B: wireB_wired,
 	}
 	return foo
 }

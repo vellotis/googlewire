@@ -20,7 +20,7 @@ import (
 	"github.com/google/wire"
 )
 
-func injectFooer() (wireFooer Fooer) {
+func injectFooer() (fooer_wired Fooer) {
 	wire.Build(Set)
 	return nil
 }

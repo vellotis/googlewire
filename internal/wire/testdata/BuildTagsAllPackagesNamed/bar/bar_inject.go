@@ -20,5 +20,5 @@ import "github.com/google/wire"
 
 // Set provides a friendly user greeting.
 var Set = wire.NewSet(
-	wire.Named("wireString", wire.Value("Hello, World!")),
+	wire.Named("message", wire.Value("Hello, World!")),
 )

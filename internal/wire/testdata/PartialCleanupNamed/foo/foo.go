@@ -45,6 +45,6 @@ func provideFoo() (*Foo, func()) {
 	return foo, func() { *foo = 0; cleanedFooCount++ }
 }
 
-func provideBar(wireFooA *Foo, wireFooB *Foo) (Bar, error) {
+func provideBar(fooA_wired *Foo, fooB_wired *Foo) (Bar, error) {
 	return 0, errors.New("bork!")
 }

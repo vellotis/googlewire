@@ -29,8 +29,8 @@ func main() {
 type Foo int
 
 type FooBar struct {
-	FooA Foo `wire:"wireFooA"`
-	FooB Foo `wire:"wireFooB"`
+	FooA Foo `wire:"fooA"`
+	FooB Foo `wire:"fooB"`
 }
 
 type Empty struct{}
@@ -45,6 +45,6 @@ func provideFoo() Foo {
 
 var Set = wire.NewSet(
 	wire.Struct(new(FooBar), "*"),
-	wire.Named("wireFooA", provideFoo),
-	wire.Named("wireFooB", provideFoo),
+	wire.Named("fooA", provideFoo),
+	wire.Named("fooB", provideFoo),
 )

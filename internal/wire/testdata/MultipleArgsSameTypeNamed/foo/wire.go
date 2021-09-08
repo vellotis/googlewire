@@ -20,12 +20,12 @@ import (
 	"github.com/google/wire"
 )
 
-func inject(wireA, wireB string) *Foo {
+func inject(wireA_wired, wireB_wired string) *Foo {
 	// fail: can't have two args of the same type.
 	panic(wire.Build(provideFoo))
 }
 
-func provideFoo(wireB string, wireA string) *Foo {
+func provideFoo(wireB_wired string, wireA_wired string) *Foo {
 	panic(wire.Build(
 		wire.Struct(new(Foo), "*"),
 	))

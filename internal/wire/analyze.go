@@ -116,10 +116,7 @@ func solve(fset *token.FileSet, out *types.Var, given *types.Tuple, set *Provide
 		from types.Type
 		up   *frame
 	}
-	wireType := out.Type()
-	if strings.HasPrefix(out.Name(), "wire") {
-		wireType = GetNamedType(wireType, out.Name())
-	}
+	wireType := GetWiredArgumentType(out.Type(), out.Name())
 	stk := []frame{{t: wireType, name: out.Name()}}
 dfs:
 	for len(stk) > 0 {
@@ -348,10 +345,7 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 		givens := set.InjectorArgs.Tuple
 		for i := 0; i < givens.Len(); i++ {
 			given := givens.At(i)
-			typ := given.Type()
-			if strings.HasPrefix(given.Name(), "wire") {
-				typ = GetNamedType(typ, given.Name())
-			}
+			typ := GetWiredArgumentType(given.Type(), given.Name())
 			arg := &InjectorArg{Args: set.InjectorArgs, Index: i}
 			src := &providerSetSrc{InjectorArg: arg}
 			if prevSrc := srcMap.At(typ); prevSrc != nil {
@@ -359,7 +353,7 @@ func buildProviderMap(fset *token.FileSet, hasher typeutil.Hasher, set *Provider
 				continue
 			}
 			pt := &ProvidedType{t: given.Type(), a: arg}
-			if strings.HasPrefix(given.Name(), "wire") {
+			if strings.HasSuffix(given.Name(), "_wired") {
 				pt.wt = typ
 			}
 			providerMap.Set(typ, pt)

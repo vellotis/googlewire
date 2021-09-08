@@ -9,6 +9,6 @@ package main
 
 func injectedMessage() string {
 	s := provideS()
-	wireA := s.A
-	return wireA
+	a := s.A
+	return a
 }

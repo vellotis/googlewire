@@ -8,16 +8,16 @@ package main
 // Injectors from wire.go:
 
 func injectFooBar() *FooBar {
-	wireFooA := provideFoo()
-	wireFooB := provideFoo()
+	fooA := provideFoo()
+	fooB := provideFoo()
 	fooBar := &FooBar{
-		FooA: wireFooA,
-		FooB: wireFooB,
+		FooA: fooA,
+		FooB: fooB,
 	}
 	return fooBar
 }
 
 func injectEmptyStruct() *Empty {
-	wireEmpty := Empty{}
-	return wireEmpty
+	empty := Empty{}
+	return empty
 }

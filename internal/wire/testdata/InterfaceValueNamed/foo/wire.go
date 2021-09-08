@@ -23,9 +23,9 @@ import (
 	"github.com/google/wire"
 )
 
-func injectedReader() (wireIoReader io.Reader) {
+func injectedReader() (ioReader_wired io.Reader) {
 	wire.Build(
-		wire.Named("wireIoReader", wire.InterfaceValue(new(io.Reader), strings.NewReader("hello world"))),
+		wire.Named("ioReader", wire.InterfaceValue(new(io.Reader), strings.NewReader("hello world"))),
 	)
 	return nil
 }

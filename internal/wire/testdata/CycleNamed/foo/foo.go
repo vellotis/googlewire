@@ -32,7 +32,7 @@ func provideFooB(_ Baz) Foo {
 	return 0
 }
 
-func provideBar(wireFooA, wireFooB Foo) Bar {
+func provideBar(fooA_wired, wireFooB_wired Foo) Bar {
 	return 0
 }
 

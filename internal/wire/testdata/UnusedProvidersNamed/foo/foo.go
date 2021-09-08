@@ -32,8 +32,8 @@ type OneOfTwo int
 type TwoOfTwo int
 
 type FooBar struct {
-	MyFoo    *Foo `wire:"wireFoo"`
-	MyBar    Bar  `wire:"wireBar"`
+	MyFoo    *Foo `wire:"foo"`
+	MyBar    Bar  `wire:"bar"`
 	MyUnused Unused
 }
 
@@ -42,7 +42,7 @@ var (
 		wire.Named("unusedInSet", provideUnusedInSet),
 	)
 	partiallyUsedSet = wire.NewSet(
-		wire.Named("wireOneOfTwo", provideOneOfTwo),
+		wire.Named("oneOfTwo", provideOneOfTwo),
 		wire.Named("unusedTwoOfTwo", provideTwoOfTwo),
 	)
 )
@@ -61,8 +61,8 @@ func provideFoo() *Foo {
 	return f
 }
 
-func provideBar(wireFoo *Foo, wireOneOfTwo OneOfTwo) Bar {
-	return Bar(int(*wireFoo) + int(wireOneOfTwo))
+func provideBar(foo_wired *Foo, oneOfTwo_wired OneOfTwo) Bar {
+	return Bar(int(*foo_wired) + int(oneOfTwo_wired))
 }
 
 func provideUnused() Unused {

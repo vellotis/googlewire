@@ -13,8 +13,8 @@ import (
 // Injectors from wire.go:
 
 func injectedReader() io.Reader {
-	wireIoReader := _wireReaderValue
-	return wireIoReader
+	ioReader := _wireReaderValue
+	return ioReader
 }
 
 var (

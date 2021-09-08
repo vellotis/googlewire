@@ -24,8 +24,8 @@ func injectFooBar() FoosBar {
 	wire.Build(
 		provideBar,
 		provideFooBar,
-		wire.Named("wireFooerA", wire.Bind(new(Fooer), new(*Bar))),
-		wire.Named("wireFooerB", wire.Bind(new(Fooer), new(*Bar))),
+		wire.Named("fooerA", wire.Bind(new(Fooer), new(*Bar))),
+		wire.Named("fooerB", wire.Bind(new(Fooer), new(*Bar))),
 	)
 	return FoosBar{}
 }

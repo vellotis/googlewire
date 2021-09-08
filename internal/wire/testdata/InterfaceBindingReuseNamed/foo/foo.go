@@ -57,6 +57,6 @@ var (
 	provideBarCalls int
 )
 
-func provideFooBar(wireFooerA Fooer, wireFooerB Fooer, bar *Bar) FoosBar {
-	return FoosBar{wireFooerA, wireFooerB, bar}
+func provideFooBar(fooerA_wired Fooer, fooerB_wired Fooer, bar *Bar) FoosBar {
+	return FoosBar{fooerA_wired, fooerB_wired, bar}
 }

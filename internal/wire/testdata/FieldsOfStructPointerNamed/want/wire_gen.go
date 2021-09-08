@@ -9,12 +9,12 @@ package main
 
 func injectedMessage() string {
 	s := provideS()
-	wireFoo := s.Foo
-	return wireFoo
+	foo := s.Foo
+	return foo
 }
 
 func injectedMessagePtr() *string {
 	s := provideS()
-	wireFoo := &s.Foo
-	return wireFoo
+	foo := &s.Foo
+	return foo
 }
